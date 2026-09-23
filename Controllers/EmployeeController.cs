@@ -1,7 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Dapper;
-using Employee_API.Data;
+﻿using Employee_API.Interface;
 using Employee_API.Model;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Employee_API.Controllers
 {
@@ -9,81 +8,53 @@ namespace Employee_API.Controllers
     [Route("[controller]")]
     public class EmployeeController : ControllerBase
     {
-        private readonly DapperContext _context;
-        public EmployeeController(DapperContext context)
+        private readonly IEmployeeRepository _employeeRepository;
+        public EmployeeController(IEmployeeRepository employeeRepository)
         {
-            _context = context;
+            _employeeRepository = employeeRepository;
         }
-
+        // GET: api/Employee
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Employee>>> GetEmployee()
         {
-            var sql = "SELECT * FROM Employee";
-            using (var connection = _context.CreateConnection())
-            {
-                var employees = await connection.QueryAsync(sql);
-                if (!employees.Any())
-                {
-                    return NoContent();
-                }
-                return Ok(employees);
-            }
+            var result= await _employeeRepository.GetEmployee();
+            return Ok(result);
         }
+        // GET: api/Employee/id
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEmployeeById(int id)
         {
-            var sql = "SELECT * FROM Employee where Id=@id";
-            using (var connection = _context.CreateConnection())
+            var result = await _employeeRepository.GetEmployeeById(id);
+            if(result == null)
             {
-                var employees = await connection.QueryAsync(sql, new { Id = id });
-                if (!employees.Any())
-                {
-                    return NoContent();
-                }
-                return Ok(employees);
+                return NotFound(new { message = "Employee not found" });
             }
+            return Ok(result);
         }
+        // POST: api/Employee
         [HttpPost]
         public async Task<IActionResult> CreateEmployee(Employee emp)
         {
-            var sql = "INSERT INTO Employee (Id, Name, Age) VALUES (@Id,@Name, @Age)";
-            using (var connection = _context.CreateConnection())
-            {
-                var result = await connection.ExecuteAsync(sql, new { emp.Id, emp.Name, emp.Age });
-                if (result > 0)
-                {
-                    return Ok(new { message = "Employee created successfully" });
-                }
-                return BadRequest(new { message = "Failed to create employee" });
-            }
+            var result = await _employeeRepository.CreateEmployee(emp);
+            return CreatedAtAction(nameof(GetEmployeeById), new { id = emp.Id }, emp);
         }
+        // PUT: api/Employee/id
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEmployee(int id, Employee emp)
         {
-            var sql = "UPDATE Employee SET Name=@Name, Age=@Age WHERE Id=@Id";
-            using (var connection = _context.CreateConnection())
-            {
-                var result = await connection.ExecuteAsync(sql, new { emp.Id, emp.Name, emp.Age });
-                if (result > 0)
-                {
-                    return Ok(new { message = "Employee updated successfully" });
-                }
-                return BadRequest(new { message = "Failed to update employee" });
-            }
+            var result = await _employeeRepository.UpdateEmployee(id,emp);
+            return result>0
+                ? Ok(new { message = "Employee Updated successfully" })
+                : BadRequest(new { message = "Failed to update employee." });
         }
+        // DELETE: api/Employee/id
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEmployee(int id)
         {
-            var sql = "DELETE FROM Employee WHERE Id=@Id";
-            using (var connection = _context.CreateConnection())
-            {
-                var result = await connection.ExecuteAsync(sql, new { Id = id });
-                if (result > 0)
-                {
-                    return Ok(new { message = "Employee deleted successfully" });
-                }
-                return BadRequest(new { message = "Failed to delete employee" });
-            }
+            var result=await _employeeRepository.DeleteEmployee(id);
+            return result > 0
+                ? Ok(new { message = "Employee Deleted successfully" })
+                : BadRequest(new { message = "Failed to delete employee or Employee doesn\'t exist." });
         }
     }
 }
