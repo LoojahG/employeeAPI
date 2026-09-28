@@ -1,4 +1,5 @@
-﻿using Employee_API.Interface;
+﻿using Employee_API.DTOs;
+using Employee_API.Interface;
 using Employee_API.Model;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,48 +14,66 @@ namespace Employee_API.Controllers
         {
             _employeeRepository = employeeRepository;
         }
-        // GET: api/Employee
+
+        // GET: /Employee
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Employee>>> GetEmployee()
+        public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetEmployee()
         {
-            var result= await _employeeRepository.GetEmployee();
-            return Ok(result);
-        }
-        // GET: api/Employee/id
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetEmployeeById(int id)
-        {
-            var result = await _employeeRepository.GetEmployeeById(id);
-            if(result == null)
+            var employees = await _employeeRepository.GetEmployee();
+
+            var result = employees.Select(e => new EmployeeDto
             {
-                return NotFound(new { message = "Employee not found" });
-            }
+                Id = e.Id,
+                Name = e.Name,
+                Age = e.Age
+            });
+
             return Ok(result);
         }
-        // POST: api/Employee
+
+        // GET: /Employee/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<EmployeeDto>> GetEmployeeById(int id)
+        {
+            var emp = await _employeeRepository.GetEmployeeById(id);
+            if (emp == null)
+                return NotFound(new { message = "Employee not found" });
+
+            return Ok(new EmployeeDto { Id = emp.Id, Name = emp.Name, Age = emp.Age });
+        }
+
+        // POST: /Employee
         [HttpPost]
-        public async Task<IActionResult> CreateEmployee(Employee emp)
+        public async Task<ActionResult<EmployeeDto>> CreateEmployee(CreateEmployeeDto dto)
         {
-            var result = await _employeeRepository.CreateEmployee(emp);
-            return CreatedAtAction(nameof(GetEmployeeById), new { id = emp.Id }, emp);
+            var emp = new Employee { Name = dto.Name, Age = dto.Age };
+
+            var newId = await _employeeRepository.CreateEmployee(emp);
+
+            var created = new EmployeeDto { Id = newId, Name = emp.Name, Age = emp.Age };
+            return CreatedAtAction(nameof(GetEmployeeById), new { id = newId }, created);
         }
-        // PUT: api/Employee/id
+
+        // PUT: /Employee/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEmployee(int id, Employee emp)
+        public async Task<IActionResult> UpdateEmployee(int id, UpdateEmployeeDto dto)
         {
-            var result = await _employeeRepository.UpdateEmployee(id,emp);
-            return result>0
-                ? Ok(new { message = "Employee Updated successfully" })
-                : BadRequest(new { message = "Failed to update employee." });
+            var emp = new Employee { Id = id, Name = dto.Name, Age = dto.Age };
+
+            var result = await _employeeRepository.UpdateEmployee(id, emp);
+            return result > 0
+                ? NoContent()
+                : NotFound(new { message = "Employee not found" });
         }
-        // DELETE: api/Employee/id
+
+        // DELETE: /Employee/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEmployee(int id)
         {
-            var result=await _employeeRepository.DeleteEmployee(id);
+            var result = await _employeeRepository.DeleteEmployee(id);
             return result > 0
-                ? Ok(new { message = "Employee Deleted successfully" })
-                : BadRequest(new { message = "Failed to delete employee or Employee doesn\'t exist." });
+                ? NoContent()
+                : NotFound(new { message = "Employee not found" });
         }
     }
 }
